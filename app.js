@@ -156,7 +156,14 @@ function addDept() {
             {
                 name: 'new_department', 
                 type: 'input', 
-                message: 'What is the name of the new department that you want do add?'
+                message: 'What is the name of the new department that you want do add?',
+                validate: (value) => {
+                    if(value) {
+                        return true;
+                    }
+                    console.log('Please enter a name!');
+                    return false;
+                }
             }
             ]).then(function (answer) {
                 connection.query(
@@ -167,7 +174,7 @@ function addDept() {
                 var query = 'SELECT * FROM department';
                 connection.query(query, function(err, res) {
                 if(err)throw err;
-                console.log('New department added!');
+                console.log(`${answer.new_department} has been added to the database!`);
                 console.table('All Departments:', res);
                 mainMenu();
                 })
