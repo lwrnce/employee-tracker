@@ -1,6 +1,7 @@
 const inquirer = require('inquirer');
 const cTable = require('console.table');
 const db = require('./db/connection');
+const figlet = require('figlet');
  
 function mainMenu() {
     inquirer.prompt({
@@ -35,16 +36,16 @@ function mainMenu() {
                 addEmployee();
                 break;
             case 'Add Role':
-                viewAll();
+                addRole();
                 break;
             case 'Update Employee Role':
-                addRole();
+                updateRole();
                 break;
             case 'EXIT':
                 exitApp();
                 break;
             default:
-                break;
+                console.log('break')
         }
     })
 };
@@ -58,91 +59,126 @@ function validateInput(value) {
 };
 
 function viewAll() {
-    const query = `SELECT * FROM employees;`;
-    db.query(query, function(err, rows) {
-        if (err) throw err;
-        console.log(rows.length + ' employees found!');
-        console.table('All Employees:', rows); 
+    const query = `SELECT
+                    employees.id,
+                    CONCAT (employees.first_name, ' ', employees.last_name) AS 'Name',
+                    roles.title AS 'Title',
+                    departments.name AS 'Department Name',
+                    roles.salary AS 'Salary',
+                    CONCAT(manager.first_name, ' ', manager.last_name) AS 'Manager'
+                    FROM employees
+                    LEFT JOIN roles on employees.role_id=roles.id
+                    LEFT JOIN departments on roles.department_id=departments.id
+                    LEFT JOIN employees manager on manager.id = employees.manager_id;`
+    db.query(query, (err, rows) => {
+        if(err) throw err;
+        console.table(rows);
         mainMenu();
-    })
+    });
 };
 
 function viewDept() {
     const query = `SELECT id AS Department_ID, name AS Department FROM departments;`;
     db.query(query, function(err, rows) {
-        if(err)throw err;
+        if(err) throw err;
         console.table('All Departments:', rows);
         mainMenu();
     })
 };
 
 function viewRoles() {
-    const query = `SELECT * FROM roles;`;
-    db.query(query, function(err, rows){
-        if (err) throw err;
-        console.table('All Roles:', rows);
-        mainMenu();
-    })
+    const query = `SELECT
+                    title AS Title,
+                    roles.id AS Role_Id,
+                    departments.name AS Department_Name,
+                    salary AS Salary
+                    FROM roles
+                    LEFT JOIN departments ON roles.department_id = departments.id;`
+
+  db.query(query, (err, rows) => {
+    console.table(rows);
+    mainMenu();
+  });
 };
 
 function addEmployee() {
-    db.query('SELECT * FROM roles;', function (err, rows) {
-        if (err) throw err;
-        inquirer
-            .prompt([
-                {
-                    name: 'first_name',
-                    type: 'input', 
-                    message: "What is your new employee's first name? ",
-                    validate: validateInput,
-                },
-                {
-                    name: 'last_name',
-                    type: 'input', 
-                    message: "What is his or her last name? ",
-                    validate: validateInput,
-                },
-                {
-                    name: 'manager_id',
-                    type: 'input', 
-                    message: "What is the employee's manager's ID?",
-                    validate: validateInput,
-                },
-                {
-                    name: 'role', 
-                    type: 'list',
-                    message: "What is this employee's role? ",
-                    choices: function() {
-                    let roleArr = [];
-                    for (let i = 0; i < rows.length; i++) {
-                        roleArr.push(rows[i].title);
-                    }
-                    return roleArr;
-                    }
-                }
-                ]).then(function (answer) {
-                    let role_id;
-                    for (let a = 0; a < rows.length; a++) {
-                        if (rows[a].title == answer.role) {
-                            role_id = rows[a].id;
-                            console.log(role_id)
-                        }                  
-                    }  
-                    db.query(
-                    'INSERT INTO employees SET ?;',
-                    {
-                        first_name: answer.first_name,
-                        last_name: answer.last_name,
-                        manager_id: answer.manager_id,
-                        role_id: role_id,
-                    },
-                    function (err) {
-                        if (err) throw err;
-                        console.log('New employee added.');
-                        mainMenu();
-                    })
-                })
-        })
+    const roleList = [];
+    const managerList = [];
+
+    const roleQuery = `SELECT title FROM roles;`;
+    const employeeQuery = `SELECT CONCAT (employees.first_name, ' ', employees.last_name) AS name FROM employees;`;
+
+  db.query(roleQuery, (err, rows) => {
+    for (let i = 0; i < rows.length; i++) {
+      if (roleQuery.indexOf(rows[i].title) === -1) {
+        roleQuery.push(rows[i].title);
+      }
+    }
+  });
+
+  db.query(employeeQuery, (err, rows) => {
+    for (let i = 0; i < rows.length; i++) {
+      if (employeeQuery.indexOf(rows[i].name) === -1) {
+        employeeQuery.push(rows[i].name);
+      }
+    }
+  });
+
+  inquirer.prompt([
+    {
+      type: 'input',
+      name: 'firstName',
+      message: "What's the first name of your new employee?",
+      validate: validateInput,
+    },
+    {
+      type: 'input',
+      name: 'lastName',
+      message: 'What is his or her last name?',
+      validate: validateInput,
+    },
+    {
+      type: 'list',
+      name: 'role',
+      message: "What is your employee's role?",
+      choices: roleList
+
+    },
+    {
+      type: 'list',
+      name: 'manager',
+      message: "Who's the employee's manager?",
+      choices: managerList
+    }
+  ])
+  .then(responses => {
+    const roleIdQuery = `SELECT id FROM roles WHERE title = '${responses.role}';`
+    let role_id;
+
+    db.query(roleIdQuery, (err, rows) => {
+      role_id = rows[0].id;
+
+      const managerName = `${responses.manager}`;
+      const managerArray = managerName.split(' ');
+      let employee_id;
+
+      const managerQuery =  `SELECT id FROM employees WHERE first_name = '${managerArray[0]}' AND last_name = '${managerArray[1]}';`;
+
+      db.query(managerQuery, (err, rows) => {
+        employee_id = rows[0].id;
+        console.log(employee_id);
+
+        const query = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?,?,?,?);`
+        const params = [`${responses.firstName}`, `${responses.lastName}`, role_id, employee_id];
+
+        db.query(query, params, (err, rows) => {
+          console.log(rows);
+          console.log(`${responses.firstName} ${responses.lastName} has been added to the employee database.`);
+          mainMenu();
+        });
+      });
+    })
+  })
 };
 
 function addDept() {
@@ -166,7 +202,7 @@ function addDept() {
 };
 
 function addRole() {
-    db.query('SELECT name * FROM departments;', function(err, rows) {
+    db.query(`SELECT name * FROM departments;`, function(err, rows) {
         if (err) throw err;
     
         inquirer 
@@ -219,12 +255,88 @@ function addRole() {
     })
 };
 
-// function updateRole() {
+function updateRole() {
+    const employeeQuery = `SELECT CONCAT (employees.first_name, ' ', employees.last_name) AS name FROM employees;`;
+    const roleQuery = `SELECT title FROM roles;`;
+  
+    db.query(employeeQuery, (err, rows) => {
+      let employeeList = [];
+  
+      for (let i = 0; i < rows.length; i++) {
+        if (employeeList.indexOf(rows[i].name) === -1) {
+          employeeList.push(rows[i].name);
+        }
+      }
+  
+    db.query(roleQuery, (err, rows) => {
+    let roleList = [];
 
-// };
+    for (let i = 0; i < rows.length; i++) {
+        if (roleList.indexOf(rows[i].title) === -1) {
+        roleList.push(rows[i].title);
+        }
+    }
+  
+        inquirer.prompt([
+          {
+            type: 'list',
+            name: 'employees',
+            message: "Which employee's role do you want to update?",
+            choices: employeeList
+          },
+          {
+            type: 'list',
+            name: 'roles',
+            message: "What is the employee's updated role?",
+            choices: roleList
+          }
+        ])
+        .then(responses => {
+          const roleIdQuery = `SELECT id FROM roles WHERE title = '${responses.roles}';`
+          let role_id;
+  
+          db.query(roleIdQuery, (err, rows) => {
+            role_id = rows[0].id;
+  
+            const employeeName = `${responses.employees}`;
+            const employeeArray = employeeName.split(' ');
+            let employee_id;
+  
+            const employeeQuery =  `SELECT id FROM employees WHERE first_name = '${employeeArray[0]}' AND last_name = '${employeeArray[1]}';`;
+  
+            db.query(employeeQuery, (err, rows) => {
+              employee_id = rows[0].id;
+              console.log(employee_id);
+  
+              const query = `UPDATE employees SET role_id = ? WHERE id = ?;`
+              const params = [role_id, employee_id];
+  
+              db.query(query, params, (err, rows) => {
+                console.log(rows);
+                console.log(`${responses.employees}'s role has been updated.`);
+                mainMenu();
+              });
+            });
+          });
+        })
+      })
+    })
+  };
 
-// function exitApp() {
-//     db.end();
-// };
+function exitApp() {
+    db.end();
+};
 
-mainMenu();
+function initApp() {
+    figlet('Employee Tracker', function(err, data) {
+        if (err) {
+          console.log('Something went wrong...');
+          console.dir(err);
+          return;
+        }
+        console.log(data);
+        mainMenu();
+      });
+};
+
+initApp();
