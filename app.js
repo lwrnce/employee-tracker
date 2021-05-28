@@ -1,22 +1,7 @@
 const inquirer = require('inquirer');
-const mysql = require('mysql2');
-const consoleTable = require('console.table');
-
-// create the connection to database
-const connection = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  port: 3306,
-  password: 'MomsBday931962',
-  database: 'employees_db'
-});
+const cTable = require('console.table');
+const db = require('./db/connection');
  
-// simple query
-connection.connect(function(err) {
-    if(err) throw err;
-    mainMenu();
-});
-
 function mainMenu() {
     inquirer.prompt({
         name: 'action',
@@ -64,37 +49,44 @@ function mainMenu() {
     })
 };
 
+function validateInput(value) {
+    if(value) {
+        return true;
+    }
+    console.log('Please enter a value!');
+    return false;
+};
 
 function viewAll() {
-    const query = 'SELECT * FROM employee';
-    connection.query(query, function(err, res) {
+    const query = `SELECT * FROM employees;`;
+    db.query(query, function(err, rows) {
         if (err) throw err;
-        console.log(res.length + ' employees found!');
-        console.table('All Employees:', res); 
+        console.log(rows.length + ' employees found!');
+        console.table('All Employees:', rows); 
         mainMenu();
     })
 };
 
 function viewDept() {
-    var query = 'SELECT * FROM department';
-    connection.query(query, function(err, res) {
+    const query = `SELECT id AS Department_ID, name AS Department FROM departments;`;
+    db.query(query, function(err, rows) {
         if(err)throw err;
-        console.table('All Departments:', res);
+        console.table('All Departments:', rows);
         mainMenu();
     })
 };
 
 function viewRoles() {
-    var query = 'SELECT * FROM role';
-    connection.query(query, function(err, res){
+    const query = `SELECT * FROM roles;`;
+    db.query(query, function(err, rows){
         if (err) throw err;
-        console.table('All Roles:', res);
+        console.table('All Roles:', rows);
         mainMenu();
     })
 };
 
 function addEmployee() {
-    connection.query('SELECT * FROM role', function (err, res) {
+    db.query('SELECT * FROM roles;', function (err, rows) {
         if (err) throw err;
         inquirer
             .prompt([
@@ -102,16 +94,19 @@ function addEmployee() {
                     name: 'first_name',
                     type: 'input', 
                     message: "What is your new employee's first name? ",
+                    validate: validateInput,
                 },
                 {
                     name: 'last_name',
                     type: 'input', 
-                    message: "What is his or her last name? "
+                    message: "What is his or her last name? ",
+                    validate: validateInput,
                 },
                 {
                     name: 'manager_id',
                     type: 'input', 
-                    message: "What is the employee's manager's ID? "
+                    message: "What is the employee's manager's ID?",
+                    validate: validateInput,
                 },
                 {
                     name: 'role', 
@@ -119,22 +114,22 @@ function addEmployee() {
                     message: "What is this employee's role? ",
                     choices: function() {
                     let roleArr = [];
-                    for (let i = 0; i < res.length; i++) {
-                        roleArr.push(res[i].title);
+                    for (let i = 0; i < rows.length; i++) {
+                        roleArr.push(rows[i].title);
                     }
                     return roleArr;
                     }
                 }
                 ]).then(function (answer) {
                     let role_id;
-                    for (let a = 0; a < res.length; a++) {
-                        if (res[a].title == answer.role) {
-                            role_id = res[a].id;
+                    for (let a = 0; a < rows.length; a++) {
+                        if (rows[a].title == answer.role) {
+                            role_id = rows[a].id;
                             console.log(role_id)
                         }                  
                     }  
-                    connection.query(
-                    'INSERT INTO employee SET ?',
+                    db.query(
+                    'INSERT INTO employees SET ?;',
                     {
                         first_name: answer.first_name,
                         last_name: answer.last_name,
@@ -157,32 +152,21 @@ function addDept() {
                 name: 'new_department', 
                 type: 'input', 
                 message: 'What is the name of the new department that you want do add?',
-                validate: (value) => {
-                    if(value) {
-                        return true;
-                    }
-                    console.log('Please enter a name!');
-                    return false;
-                }
+                validate: validateInput,
             }
-            ]).then(function (answer) {
-                connection.query(
-                    'INSERT INTO department SET ?',
-                    {
-                        name: answer.new_department
-                    });
-                var query = 'SELECT * FROM department';
-                connection.query(query, function(err, res) {
-                if(err)throw err;
-                console.log(`${answer.new_department} has been added to the database!`);
-                console.table('All Departments:', res);
-                mainMenu();
+            ]).then(answer => {
+                const sql = `INSERT INTO departments (name) VALUES (?);`
+                const newDepartment = answer.new_department;
+            
+                db.query(sql, newDepartment, (err, res) => {
+                    console.log(`${newDepartment} has been added to the database!`);
+                    mainMenu();
                 })
             })
 };
 
 function addRole() {
-    connection.query('SELECT * FROM department', function(err, res) {
+    db.query('SELECT name * FROM departments;', function(err, rows) {
         if (err) throw err;
     
         inquirer 
@@ -190,43 +174,45 @@ function addRole() {
             {
                 name: 'new_role',
                 type: 'input', 
-                message: "What new role would you like to add?"
+                message: "What new role would you like to add?",
+                validate: validateInput,
             },
             {
                 name: 'salary',
                 type: 'input',
-                message: 'What is the salary of this role? (Enter a number)'
+                message: 'What is the salary of this role? (Enter a number)',
+                validate: validateInput,
             },
             {
                 name: 'Department',
                 type: 'list',
                 choices: function() {
-                    var deptArry = [];
-                    for (let i = 0; i < res.length; i++) {
-                    deptArry.push(res[i].name);
+                    let deptArray = [];
+                    for (let i = 0; i < rows.length; i++) {
+                    deptArray.push(rows[i].name);
                     }
-                    return deptArry;
+                    return deptArray;
                 },
             }
         ]).then(function (answer) {
             let department_id;
-            for (let a = 0; a < res.length; a++) {
-                if (res[a].name == answer.Department) {
-                    department_id = res[a].id;
+            for (let a = 0; a < rows.length; a++) {
+                if (rows[a].name == answer.Department) {
+                    department_id = rows[a].id;
                 }
             }
     
-            connection.query(
-                'INSERT INTO role SET ?',
+            db.query(
+                'INSERT INTO roles SET ?;',
                 {
                     title: answer.new_role,
                     salary: answer.salary,
                     department_id: department_id
                 },
-                function (err, res) {
+                function (err, rows) {
                     if(err)throw err;
                     console.log('Your new role has been added!');
-                    console.table('All Roles:', res);
+                    console.table('All Roles:', rows);
                     mainMenu();
                 })
         })
@@ -237,6 +223,8 @@ function addRole() {
 
 // };
 
-function exitApp() {
-    connection.end();
-};
+// function exitApp() {
+//     db.end();
+// };
+
+mainMenu();
