@@ -78,10 +78,13 @@ function viewAll() {
 };
 
 function viewDept() {
-    const query = `SELECT id AS Department_ID, name AS Department FROM departments;`;
-    db.query(query, function(err, rows) {
-        if(err) throw err;
-        console.table('All Departments:', rows);
+    const query = `SELECT 
+                    id AS Department_ID,
+                    departments.name AS Department_Name
+                    FROM departments;`;
+    db.query(query, (err, rows) => {
+      if(err) throw err;
+      console.table(rows);
         mainMenu();
     })
 };
@@ -96,6 +99,7 @@ function viewRoles() {
                     LEFT JOIN departments ON roles.department_id = departments.id;`
 
   db.query(query, (err, rows) => {
+    if(err) throw err;
     console.table(rows);
     mainMenu();
   });
