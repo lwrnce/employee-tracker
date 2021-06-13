@@ -63,7 +63,7 @@ function viewAll() {
                     employees.id,
                     CONCAT (employees.first_name, ' ', employees.last_name) AS 'Name',
                     roles.title AS 'Title',
-                    departments.name AS 'Department Name',
+                    departments.department_name AS 'Department Name',
                     roles.salary AS 'Salary',
                     CONCAT(manager.first_name, ' ', manager.last_name) AS 'Manager'
                     FROM employees
@@ -91,7 +91,7 @@ function viewRoles() {
     const query = `SELECT
                     title AS Title,
                     roles.id AS Role_Id,
-                    departments.name AS Department_Name,
+                    departments.department_name AS Department_Name,
                     salary AS Salary
                     FROM roles
                     LEFT JOIN departments ON roles.department_id = departments.id;`
@@ -112,16 +112,16 @@ function addEmployee() {
 
   db.query(roleQuery, (err, rows) => {
     for (let i = 0; i < rows.length; i++) {
-      if (roleQuery.indexOf(rows[i].title) === -1) {
-        roleQuery.push(rows[i].title);
+      if (roleList.indexOf(rows[i].title) === -1) {
+        roleList.push(rows[i].title);
       }
     }
   });
 
   db.query(employeeQuery, (err, rows) => {
     for (let i = 0; i < rows.length; i++) {
-      if (employeeQuery.indexOf(rows[i].name) === -1) {
-        employeeQuery.push(rows[i].name);
+      if (managerList.indexOf(rows[i].name) === -1) {
+        managerList.push(rows[i].name);
       }
     }
   });
@@ -153,14 +153,14 @@ function addEmployee() {
       choices: managerList
     }
   ])
-  .then(responses => {
-    const roleIdQuery = `SELECT id FROM roles WHERE title = '${responses.role}';`
+  .then(answer => {
+    const roleIdQuery = `SELECT id FROM roles WHERE title = '${answer.role}';`
     let role_id;
 
     db.query(roleIdQuery, (err, rows) => {
       role_id = rows[0].id;
 
-      const managerName = `${responses.manager}`;
+      const managerName = `${answer.manager}`;
       const managerArray = managerName.split(' ');
       let employee_id;
 
@@ -168,14 +168,12 @@ function addEmployee() {
 
       db.query(managerQuery, (err, rows) => {
         employee_id = rows[0].id;
-        console.log(employee_id);
 
-        const query = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?,?,?,?);`
-        const params = [`${responses.firstName}`, `${responses.lastName}`, role_id, employee_id];
+        const employeeQuery = `INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?,?,?,?);`
+        const params = [`${answer.firstName}`, `${answer.lastName}`, role_id, employee_id];
 
-        db.query(query, params, (err, rows) => {
-          console.log(rows);
-          console.log(`${responses.firstName} ${responses.lastName} has been added to the employee database.`);
+        db.query(employeeQuery, params, (err, rows) => {
+          console.log(`${answer.firstName} ${answer.lastName} has been added to the employee database.`);
           mainMenu();
         });
       });
@@ -187,16 +185,16 @@ function addDept() {
     inquirer
         .prompt([
             {
-                name: 'new_department', 
-                type: 'input', 
+                type: 'input',
+                name: 'deptName', 
                 message: 'What is the name of the new department that you want do add?',
-                validate: validateInput,
+                validate: validateInput
             }
             ]).then(answer => {
-                const sql = `INSERT INTO departments (name) VALUES (?);`
-                const newDepartment = answer.new_department;
+                const query = `INSERT INTO departments (name) VALUES (?);`
+                const newDepartment = answer.deptName;
             
-                db.query(sql, newDepartment, (err, res) => {
+                db.query(query, newDepartment, (err, res) => {
                     console.log(`${newDepartment} has been added to the database!`);
                     mainMenu();
                 })
@@ -204,57 +202,51 @@ function addDept() {
 };
 
 function addRole() {
-    db.query(`SELECT name * FROM departments;`, function(err, rows) {
-        if (err) throw err;
-    
-        inquirer 
-        .prompt([
-            {
-                name: 'new_role',
-                type: 'input', 
-                message: "What new role would you like to add?",
-                validate: validateInput,
-            },
-            {
-                name: 'salary',
-                type: 'input',
-                message: 'What is the salary of this role? (Enter a number)',
-                validate: validateInput,
-            },
-            {
-                name: 'Department',
-                type: 'list',
-                choices: function() {
-                    let deptArray = [];
-                    for (let i = 0; i < rows.length; i++) {
-                    deptArray.push(rows[i].name);
-                    }
-                    return deptArray;
-                },
-            }
-        ]).then(function (answer) {
-            let department_id;
-            for (let a = 0; a < rows.length; a++) {
-                if (rows[a].name == answer.Department) {
-                    department_id = rows[a].id;
-                }
-            }
-    
-            db.query(
-                'INSERT INTO roles SET ?;',
-                {
-                    title: answer.new_role,
-                    salary: answer.salary,
-                    department_id: department_id
-                },
-                function (err, rows) {
-                    if(err)throw err;
-                    console.log('Your new role has been added!');
-                    console.table('All Roles:', rows);
-                    mainMenu();
-                })
-        })
-    })
+  const deptArray = [];
+
+  db.query(`SELECT name FROM departments;`, (err, rows) => {
+    for (let i = 0; i < rows.length; i++) {
+      if (deptArray.indexOf(rows[i].name) === -1) {
+        deptArray.push(rows[i].name);
+      }
+    }
+  });
+
+  inquirer.prompt([
+    {
+      type: 'input',
+      name: 'title',
+      message: "What is the title of this role?",
+      validate: validateInput
+    },
+    {
+      type: 'number',
+      name: 'salary',
+      message: 'What is the salary for this particular role?',
+      validate: validateInput
+    },
+    {
+      type: 'list',
+      name: 'department',
+      message: 'Which department does this role belong to?',
+      choices: deptArray
+    }
+  ])
+  .then(responses => {
+    const deptIDQuery = `SELECT id FROM departments WHERE name = '${responses.department}';`
+    let department_id;
+
+    db.query(deptIDQuery, (err, rows) => {
+      department_id = rows[0].id;
+
+      const params = [`${responses.title}`, responses.salary, department_id];
+
+      db.query(`INSERT INTO roles (title, salary, department_id) VALUES (?,?,?);`, params, (err, rows) => {
+        console.log(`${responses.title} has been added.`);
+        mainMenu();
+      })
+    });
+  });
 };
 
 function updateRole() {
@@ -314,7 +306,7 @@ function updateRole() {
               const params = [role_id, employee_id];
   
               db.query(query, params, (err, rows) => {
-                console.log(rows);
+                // console.log(rows);
                 console.log(`${responses.employees}'s role has been updated.`);
                 mainMenu();
               });

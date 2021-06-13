@@ -1,7 +1,7 @@
 # Employee Tracker
 
 ## Description
-Employee tracker is a command line application that creates and stores employees, departments, roles, and salaries into a database. This information can then be called and returned in a table format to be displayed to the user.
+Employee tracker is a command line application that creates and stores employees, departments, roles, and salaries into a database. This information can then be called and returned in a table format to be displayed to the user. A link to the walkthrough video can be found [here](https://www.youtube.com/watch?v=0y_iBLz-dHw).
     
     
 ## Table of Contents:

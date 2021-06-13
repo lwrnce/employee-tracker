@@ -3,8 +3,10 @@ DROP TABLE IF EXISTS roles;
 DROP TABLE IF EXISTS employees;
 
 CREATE TABLE departments (
+  name VARCHAR(30) NOT NULL,
   id INTEGER AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(30) NOT NULL
+  department_name VARCHAR(30) NOT NULL,
+  department_id INTEGER NOT NULL
 );
 
 CREATE TABLE roles (
